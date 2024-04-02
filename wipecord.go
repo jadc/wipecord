@@ -50,29 +50,31 @@ func main(){
     if !*yes {
         reader := bufio.NewReader(os.Stdin)
         in, err := reader.ReadString('\n')
-		if err != nil { abort(err.Error()) }
+        if err != nil { abort(err.Error()) }
 
-		in = strings.ToLower(strings.TrimSpace(in))
+        in = strings.ToLower(strings.TrimSpace(in))
 
-		if in != "y" && in != "yes" {
-		    os.Exit(0)
-		}
+        if in != "y" && in != "yes" {
+            os.Exit(0)
+        }
     }else{
         fmt.Println("y")
     }
 
     // Wipe messages
     fmt.Println("Wiping messages...")
+    deleted_so_far := 0
 
     for {
-        count, messages := get_message_bundle(&ticket, guild_id, &author_id)
-        if count == 0 { break }
+        _, messages := get_message_bundle(&ticket, guild_id, &author_id)
+        if deleted_so_far >= total_messages { break }
         for _, message := range messages {
             if delete_message(&ticket, &message, *delete_rate){
                 fmt.Println(" Deleted message:", message.Content)
+                deleted_so_far++
             }
         }
-        fmt.Println("Deleted", fmt.Sprintf("%d/%d", total_messages - count + 20, total_messages), "messages so far")
+        fmt.Println("Deleted", fmt.Sprintf("%d/%d", deleted_so_far, total_messages), "messages so far")
         fmt.Println("\nWaiting", *fetch_rate, "ms before fetching more messages...")
         time.Sleep(time.Duration(*fetch_rate) * time.Millisecond)
     }
@@ -92,7 +94,6 @@ func delete_message(ticket* authed_client, message* message, rate int) bool {
 
 func get_message_bundle(ticket* authed_client, guild_id* string, author_id* string) (int, []message) {
     var bundle struct { 
-        Count int `json:"total_results"`
         Messages [][]message `json:"messages"`
     }
     bundle_req := discord(ticket, "GET", "/guilds/" + *guild_id + "/messages/search?author_id=" + *author_id + "&sort_order=asc&include_nsfw=true")
@@ -108,7 +109,7 @@ func get_message_bundle(ticket* authed_client, guild_id* string, author_id* stri
     }
 
     fmt.Println("Fetched", len(message_ids), "messages")
-    return bundle.Count, message_ids
+    return len(message_ids), message_ids
 }
 
 func get_total_messages(ticket* authed_client, guild_id* string, author_id* string) int {
